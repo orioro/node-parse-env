@@ -1,5 +1,16 @@
 // native
 const fs = require('fs');
+const path = require('path');
+
+// third-party
+const findRoot   = require('find-root');
+const objectPath = require('object-path');
+
+/**
+ * Root directory of the main module (module at which this module is installed)
+ * @type {String}
+ */
+const MAIN_ROOT = findRoot(require.main.filename);
 
 /**
  * Regular expression used to parse loader strings
@@ -11,6 +22,21 @@ const fs = require('fs');
  * @type {RegExp}
  */
 const LOADER_RE = /^(.+?)(\?)?:(.+)$/;
+
+/**
+ * Used to split the loaderString
+ * @type {RegExp}
+ */
+const OR_RE = /\s*\|\|\s*/;
+
+/**
+ * Hash with booleans by string
+ * @type {Object}
+ */
+const BOOL_STRS = {
+  'false': false,
+  'true': true,
+};
 
 const LOADER_FNS = {
   fs: function (isOptional, filepathVarName) {
@@ -27,13 +53,72 @@ const LOADER_FNS = {
     return fs.readFileSync(filepath, 'utf8');
   },
 
-  env: function (isOptional, varName) {
-    var value = process.env[varName];
+  env: function (isOptional, envVar) {
+    var envValue = process.env[envVar];
 
-    if (!isOptional && typeof value === 'undefined') {
-      throw new Error(varName + ' env var MUST be set');
+    if (!isOptional && typeof envValue === 'undefined') {
+      throw new Error(envVar + ' env var MUST be set');
     }
 
+    return envValue;
+  },
+
+  num: function (isOptional, envVar) {
+    var envValue = LOADER_FNS.env(isOptional, envVar);
+    var numValue = parseFloat(envValue);
+
+    if (isNaN(numValue)) {
+      if (!isOptional) {
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var');
+      } else {
+        return undefined;
+      }
+    }
+
+    return numValue;
+  },
+
+  bool: function (isOptional, envVar) {
+    var envValue  = LOADER_FNS.env(isOptional, envVar) || '';
+    var boolValue = BOOL_STRS[envValue.toLowerCase()];
+
+    if (typeof boolValue === 'undefined') {
+      if (!isOptional) {
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var');
+      } else {
+        return undefined;
+      }
+    }
+
+    return boolValue;
+  },
+
+  pkg: function (isOptional, objPath) {
+
+    if (!MAIN_ROOT) {
+      if (!isOptional) {
+        throw new Error('could not locate package.json');
+      } else {
+        return undefined;
+      }
+    }
+
+    var packageJSON = require(path.join(MAIN_ROOT, 'package.json'));
+
+    var value = objectPath.get(packageJSON, objPath);
+
+    if (typeof value === 'undefined') {
+      if (!isOptional) {
+        throw new Error(objPath + ' path of package.json MUST be set');
+      } else {
+        return undefined;
+      }
+    }
+
+    return value;
+  },
+
+  literal: function (isOptional, value) {
     return value;
   },
 };
@@ -49,21 +134,30 @@ function parseLoaderString(loaderString) {
     throw new Error('invalid loaderString ' + loaderString);
   }
 
-  // split by whitespaces
-  var subLoaders = loaderString.split(/\s+/).map((subLoaderStr) => {
+  // split into multiple sub loaders
+  var subLoaders = loaderString.split(OR_RE).map((subLoaderStr) => {
     var match = subLoaderStr.match(LOADER_RE);
 
-    if (!match) {
-      throw new Error('invalid loader "' + subLoaderStr + '"" from "' + loaderString + '"');
+    var protocol;
+    var isOptional;
+    var args;
+
+    if (match) {
+      protocol = match[1];
+      isOptional = match[2] ? true : false;
+      args = match[3] || '';
+      args = args.split(',');
+
+      // isOptional is always the first argument
+      args.unshift(isOptional);
+
+    } else {
+
+      protocol   = 'literal';
+      args       = [false, subLoaderStr];
+
+      // throw new Error('invalid loader "' + subLoaderStr + '"" from "' + loaderString + '"');
     }
-
-    var protocol = match[1];
-    var isOptional = match[2];
-    var args = match[3] || '';
-    args = args.split(',');
-
-    // isOptional is always the first argument
-    args.unshift(isOptional);
 
     var fn = LOADER_FNS[protocol];
 
@@ -106,9 +200,15 @@ function envOptions(optionLoaders) {
 
   for (var optName in optionLoaders) {
 
-    var loaderObjs = parseLoaderString(optionLoaders[optName])
+    var loaderString = optionLoaders[optName];
 
-    opts[optName] = runLoaderObjs(loaderObjs);
+    if (typeof loaderString === 'string') {
+      // only process strings
+      var loaderObjs = parseLoaderString(loaderString);
+      opts[optName] = runLoaderObjs(loaderObjs);
+    } else {
+      opts[optName] = loaderString;
+    }
   }
 
   return opts;
