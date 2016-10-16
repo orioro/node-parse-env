@@ -30,6 +30,12 @@ const LOADER_RE = /^(.+?)(\?)?:(.+)$/;
 const OR_RE = /\s*\|\|\s*/;
 
 /**
+ * Used to split array string
+ * @type {RegExp}
+ */
+const COMMA_RE = /\s*,\s*/;
+
+/**
  * Hash with booleans by string
  * @type {Object}
  */
@@ -39,20 +45,6 @@ const BOOL_STRS = {
 };
 
 const LOADER_FNS = {
-  fs: function (isOptional, filepathVarName) {
-    var filepath = process.env[filepathVarName];
-
-    if (!filepath) {
-      if (!isOptional) {
-        throw new Error(filepathVarName + ' env var MUST be set');
-      } else {
-        return undefined;
-      }
-    }
-
-    return fs.readFileSync(filepath, 'utf8');
-  },
-
   env: function (isOptional, envVar) {
     var envValue = process.env[envVar];
 
@@ -63,13 +55,30 @@ const LOADER_FNS = {
     return envValue;
   },
 
+  fs: function (isOptional, envVar) {
+    var envValue = LOADER_FNS.env(isOptional, envVar);
+    var value;
+
+    try {
+      value = fs.readFileSync(envValue, 'utf8');
+    } catch (e) {
+      if (!isOptional) {
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var - MUST be valid FILEPATH - ERROR: ' + e.code);
+      } else {
+        return undefined;
+      }
+    }
+
+    return value;
+  },
+
   num: function (isOptional, envVar) {
     var envValue = LOADER_FNS.env(isOptional, envVar);
     var numValue = parseFloat(envValue);
 
     if (isNaN(numValue)) {
       if (!isOptional) {
-        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var');
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var - MUST be valid NUMBER');
       } else {
         return undefined;
       }
@@ -84,7 +93,7 @@ const LOADER_FNS = {
 
     if (typeof boolValue === 'undefined') {
       if (!isOptional) {
-        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var');
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var - MUST be valid BOOLEAN');
       } else {
         return undefined;
       }
@@ -112,6 +121,30 @@ const LOADER_FNS = {
         throw new Error(objPath + ' path of package.json MUST be set');
       } else {
         return undefined;
+      }
+    }
+
+    return value;
+  },
+
+  list: function (isOptional, envVar) {
+    var envValue = LOADER_FNS.env(isOptional, envVar) || '';
+
+    return envValue.split(COMMA_RE);
+  },
+
+  json: function (isOptional, envVar) {
+    var envValue = LOADER_FNS.env(isOptional, envVar) || '';
+
+    var value;
+
+    try {
+      value = JSON.parse(envValue);
+    } catch (e) {
+      if (!isOptional) {
+        throw new TypeError('illegal value "' + envValue + '" for "' + envVar + '" env var - MUST be valid JSON');
+      } else {
+        value = undefined;
       }
     }
 

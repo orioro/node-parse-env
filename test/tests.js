@@ -28,6 +28,8 @@ describe('envOptions(loaders)', function () {
     process.env.SOME_OPTION = 'someValue';
     process.env.ENV_BOOLEAN = 'FALSE';
     process.env.ENV_NUMBER  = '10.9';
+    process.env.LIST_OF_VALUES = 'value1,value2, value3';
+    process.env.JSON_STRING = '{ "hey": "im json", "number": 3 }';
 
     envOptions({
       secret: 'fs:SECRET_PATH',
@@ -36,6 +38,8 @@ describe('envOptions(loaders)', function () {
       envBoolean: 'bool:ENV_BOOLEAN',
       envNumber: 'num:ENV_NUMBER',
       pkgName: 'pkg:name',
+      list: 'list:LIST_OF_VALUES',
+      json: 'json:JSON_STRING',
 
       literal: 'literal value',
       literalNumber: 6,
@@ -48,6 +52,11 @@ describe('envOptions(loaders)', function () {
       envBoolean: false,
       envNumber: 10.9,
       pkgName: 'mocha',
+      list: ['value1', 'value2', 'value3'],
+      json: {
+        hey: 'im json',
+        number: 3
+      },
 
       literal: 'literal value',
       literalNumber: 6,
