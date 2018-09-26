@@ -228,8 +228,8 @@ function runLoaderObjs(loaderObjs) {
   return res;
 }
 
-function envOptions(optionLoaders) {
-  var opts = {};
+function envOptions(optionLoaders, defaults) {
+  var opts = Object.assign({}, defaults);
 
   for (var optName in optionLoaders) {
 
