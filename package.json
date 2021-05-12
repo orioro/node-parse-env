@@ -29,6 +29,9 @@
   },
   "author": "",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist/**/*"
   ],
