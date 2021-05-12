@@ -1,18 +1,8 @@
-# env-options
-
-Little DSL for reading environment variables
+# env
 
 ```
-var options = envOptions({
-  secret: 'fs:SECRET_PATH',
-  someOption: 'env:SOME_OPTION',
-  someOtherOption: 'env?:SOME_OTHER_OPTION',
-});
-
-console.log(options);
-// {
-//   secret: 'secret-1',
-//   someOption: 'someValue',
-//   someOtherOption: undefined,
-// }
+npm install @orioro/env
+yarn add @orioro/env
 ```
+
+# API Docs
